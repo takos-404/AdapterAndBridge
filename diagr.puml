@@ -1,0 +1,80 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+' --- Exception & DTO ---
+class StreamLostException <<Exception>> {
+  + StreamLostException(message: String)
+}
+
+class CctvStatus {
+  + buffer: byte[]
+  + errorCode: int
+}
+
+' --- Implementor Hierarchy ---
+interface VideoSource {
+  + fetchFrame(): byte[]
+  + closeStream(): void
+}
+
+class IpCameraSource {
+  + fetchFrame(): byte[]
+  + closeStream(): void
+}
+
+class WebcamSource {
+  + fetchFrame(): byte[]
+  + closeStream(): void
+}
+
+VideoSource <|.. IpCameraSource
+VideoSource <|.. WebcamSource
+
+' --- Adapter Pattern ---
+class CctvAnalogReceiver {
+  + readRawBuffer(bufferSize: int): CctvStatus
+  + terminateConnection(): void
+}
+
+class CctvAdapter {
+  - receiver: CctvAnalogReceiver
+  - bufferSize: int
+  + CctvAdapter(receiver: CctvAnalogReceiver, bufferSize: int)
+  + fetchFrame(): byte[]
+  + closeStream(): void
+}
+
+VideoSource <|.. CctvAdapter
+CctvAdapter "1" *--> "1" CctvAnalogReceiver : wraps >
+CctvAnalogReceiver ..> CctvStatus : returns >
+CctvAdapter ..> StreamLostException : throws >
+
+' --- Abstraction Hierarchy (Bridge) ---
+abstract class StreamProcessor {
+  # videoSource: VideoSource
+  + StreamProcessor(videoSource: VideoSource)
+  + {abstract} process(): void
+}
+
+class MotionDetectionProcessor {
+  + MotionDetectionProcessor(videoSource: VideoSource)
+  + process(): void
+}
+
+class ArchiveProcessor {
+  + ArchiveProcessor(videoSource: VideoSource)
+  + process(): void
+}
+
+StreamProcessor o--> VideoSource : bridge >
+StreamProcessor <|-- MotionDetectionProcessor
+StreamProcessor <|-- ArchiveProcessor
+
+' --- Factory (Dynamic Selection) ---
+class VideoSourceFactory {
+  + {static} createSource(url: String): VideoSource
+}
+
+VideoSourceFactory ..> VideoSource : creates >
+
+@enduml
